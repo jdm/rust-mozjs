@@ -13,21 +13,20 @@ use std::rc;
 use std::rt::Runtime;
 use std::string;
 use jsapi::{JSContext, JSRuntime, JSGCStatus, JS_NewRuntime, JSObject};
-use jsapi::{JS_SetNativeStackBounds, JS_SetGCCallback, JS_DestroyContext, JSVERSION_LATEST};
+use jsapi::{JS_SetNativeStackBounds, JS_SetGCCallback, JS_DestroyContext};
 use jsapi::{JS_EnterCompartment, JS_LeaveCompartment};
 use jsapi::{JS_SetErrorReporter, JS_NO_HELPER_THREADS};
-use jsapi::{JS_EvaluateUCScript};
+use jsapi::{JS_EvaluateUCScript, JS_BeginRequest, JS_EndRequest};
 use jsapi::{JS_NewContext, JSErrorReport, JSJITCOMPILER_ION_ENABLE};
-use jsapi::{JSMutableHandleValue};
+use jsapi::{JSMutableHandleValue, JS_DestroyRuntime};
 use jsapi::{JS_SetGlobalJitCompilerOption, JSJITCOMPILER_BASELINE_ENABLE};
 use jsapi::{JSJITCOMPILER_PARALLEL_COMPILATION_ENABLE, JSHandleObject};
 use jsval::{JSVal, NullValue};
-use glue::{CompartmentOptions_SetVersion};
+//use glue::{CompartmentOptions_SetVersion};
 use glue::{/*CompartmentOptions_SetTraceGlobal,*/ ContextOptions_SetVarObjFix};
 use default_stacksize;
 use default_heapsize;
 use ERR;
-use green::task::GreenTask;
 
 // ___________________________________________________________________________
 // friendly Rustic API to runtimes
@@ -36,6 +35,14 @@ pub type rt = rc::Rc<rt_rsrc>;
 
 pub struct rt_rsrc {
     pub ptr : *mut JSRuntime,
+}
+
+impl Drop for rt_rsrc {
+    fn drop(&mut self) {
+        unsafe {
+            JS_DestroyRuntime(self.ptr);
+        }
+    }
 }
 
 pub fn new_runtime(p: *mut JSRuntime) -> rt {
@@ -62,10 +69,8 @@ extern fn gc_callback(rt: *mut JSRuntime, _status: JSGCStatus, _data: *mut libc:
     use std::rt::task::Task;
     unsafe {
         let mut task = Local::borrow(None::<Task>);
-        let green_task: Box<GreenTask> = task.maybe_take_runtime().unwrap();
-        let (start, end) = green_task.stack_bounds();
+        let (start, end) = task.get().stack_bounds();
         JS_SetNativeStackBounds(rt, cmp::min(start, end), cmp::max(start, end));
-        task.put_runtime(green_task);
     }
 }
 
@@ -108,7 +113,7 @@ impl Cx {
     pub fn set_default_options_and_version(&self) {
         unsafe {
             ContextOptions_SetVarObjFix(self.ptr, true);
-            CompartmentOptions_SetVersion(self.ptr, JSVERSION_LATEST);
+            //CompartmentOptions_SetVersion(self.ptr, JSVERSION_LATEST);
         }
     }
 
@@ -172,10 +177,34 @@ pub extern fn reportError(_cx: *mut JSContext, msg: *const c_char, report: *mut 
 
 pub fn with_compartment<R>(cx: *mut JSContext, object: *mut JSObject, cb: || -> R) -> R {
     unsafe {
+        let _ar = JSAutoRequest::new(cx);
         let old_compartment = JS_EnterCompartment(cx, object);
         let result = cb();
         JS_LeaveCompartment(cx, old_compartment);
         result
+    }
+}
+
+pub struct JSAutoRequest {
+    cx: *mut JSContext,
+}
+
+impl JSAutoRequest {
+    pub fn new(cx: *mut JSContext) -> JSAutoRequest {
+        unsafe {
+            JS_BeginRequest(cx);
+        }
+        JSAutoRequest {
+            cx: cx,
+        }
+    }
+}
+
+impl Drop for JSAutoRequest {
+    fn drop(&mut self) {
+        unsafe {
+            JS_EndRequest(self.cx);
+        }
     }
 }
 
