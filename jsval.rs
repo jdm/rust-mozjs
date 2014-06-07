@@ -4,8 +4,8 @@
 
 use jsapi::{JSObject, JSString, Struct_Unnamed1, JSGCTraceKind, JSTRACE_OBJECT, JSTRACE_STRING};
 
-use libc::c_void, uint64_t, c_double, size_t, uintptr_t;
 use std::mem;
+use libc::{c_void, uint64_t, c_double, size_t, uintptr_t};
 
 static JSVAL_TAG_SHIFT: int = 47;
 
@@ -60,22 +60,22 @@ pub struct Union_jsval_layout {
 }
 impl Union_jsval_layout {
     pub fn asBits(&mut self) -> *mut uint64_t {
-        unsafe { ::std::cast::transmute(self) }
+        unsafe { ::std::mem::transmute(self) }
     }
     pub fn s(&mut self) -> *mut Struct_Unnamed1 {
-        unsafe { ::std::cast::transmute(self) }
+        unsafe { ::std::mem::transmute(self) }
     }
     pub fn asDouble(&mut self) -> *mut c_double {
-        unsafe { ::std::cast::transmute(self) }
+        unsafe { ::std::mem::transmute(self) }
     }
     pub fn asPtr(&mut self) -> *mut *mut c_void {
-        unsafe { ::std::cast::transmute(self) }
+        unsafe { ::std::mem::transmute(self) }
     }
     pub fn asWord(&mut self) -> *mut size_t {
-        unsafe { ::std::cast::transmute(self) }
+        unsafe { ::std::mem::transmute(self) }
     }
     pub fn asUIntPtr(&mut self) -> *mut uintptr_t {
-        unsafe { ::std::cast::transmute(self) }
+        unsafe { ::std::mem::transmute(self) }
     }
 }
 
