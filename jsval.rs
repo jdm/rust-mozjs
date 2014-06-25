@@ -56,7 +56,7 @@ static JSVAL_PAYLOAD_MASK: u64 = 0x00007FFFFFFFFFFF;
 
 #[deriving(PartialEq,Clone)]
 pub struct Union_jsval_layout {
-    pub v: u64
+    pub data: u64
 }
 impl Union_jsval_layout {
     pub fn asBits(&mut self) -> *mut uint64_t {

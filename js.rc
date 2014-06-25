@@ -7,7 +7,7 @@
 #![crate_type = "dylib"]
 #![crate_type = "rlib"]
 
-#![feature(globs, link_args, managed_boxes, phase)]
+#![feature(globs, link_args, managed_boxes, phase, unsafe_destructor)]
 
 #![allow(non_uppercase_statics, non_camel_case_types)]
 
