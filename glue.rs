@@ -23,9 +23,9 @@ pub type JSBool = c_bool;
 
 pub struct ProxyTraps {
     pub preventExtensions: Option<extern "C" fn(*mut JSContext, JSHandleObject) -> c_bool>,
-    pub getPropertyDescriptor: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSHandleId, MutableHandle<*mut JSPropertyDescriptor>, u32) -> c_bool>,
-    pub getOwnPropertyDescriptor: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSHandleId, MutableHandle<*mut JSPropertyDescriptor>, u32) -> c_bool>,
-    pub defineProperty: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSHandleId, MutableHandle<*mut JSPropertyDescriptor>) -> c_bool>,
+    pub getPropertyDescriptor: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSHandleId, MutableHandle<JSPropertyDescriptor>, u32) -> c_bool>,
+    pub getOwnPropertyDescriptor: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSHandleId, MutableHandle<JSPropertyDescriptor>, u32) -> c_bool>,
+    pub defineProperty: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSHandleId, MutableHandle<JSPropertyDescriptor>) -> c_bool>,
     pub getOwnPropertyNames: *u8, //XXX need a representation for AutoIdVector&
     pub delete_: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSHandleId, *mut bool) -> JSBool>,
     pub enumerate: *u8, //XXX need a representation for AutoIdVector&
@@ -108,7 +108,7 @@ pub fn js_IsFunctionProxyClass(obj: *mut JSObject) -> bool;
 pub fn IsProxyHandlerFamily(obj: *mut JSObject) -> bool;
 pub fn GetProxyHandlerExtra(obj: *mut JSObject) -> *libc::c_void;
 pub fn GetProxyHandler(obj: *mut JSObject) -> *libc::c_void;
-pub fn InvokeGetOwnPropertyDescriptor(handler: *libc::c_void, cx: *mut JSContext, proxy: JSHandleObject, id: JSHandleId, desc: MutableHandle<*mut JSPropertyDescriptor>, flags: u32) -> c_bool;
+pub fn InvokeGetOwnPropertyDescriptor(handler: *libc::c_void, cx: *mut JSContext, proxy: JSHandleObject, id: JSHandleId, desc: MutableHandle<JSPropertyDescriptor>, flags: u32) -> c_bool;
 pub fn GetGlobalForObjectCrossCompartment(obj: *mut JSObject) -> *mut JSObject;
 pub fn ReportError(cx: *mut JSContext, error: *libc::c_char);
 pub fn IsWrapper(obj: *mut JSObject) -> JSBool;
