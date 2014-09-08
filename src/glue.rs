@@ -42,6 +42,7 @@ pub struct ProxyTraps {
     pub nativeCall: *const u8, //XXX need a representation for IsAcceptableThis, NativeImpl, and CallArgs
     pub hasInstance: Option<extern "C" fn(*mut JSContext, JSHandleObject, JSMutableHandleValue, *mut bool) -> bool>,
     pub objectClassIs: Option<extern "C" fn(JSHandleObject, libc::c_uint, *mut JSContext) -> bool>, //XXX ESClassValue enum
+    pub className: Option<extern "C" fn(*mut JSContext, JSHandleObject) -> *const libc::c_char>,
     pub fun_toString: Option<extern "C" fn(*mut JSContext, JSHandleObject, libc::c_uint) -> *mut JSString>,
     //regexp_toShared: *u8,
     pub defaultValue: Option<extern "C" fn(*mut JSContext, JSHandleObject, Enum_JSType, JSMutableHandleValue) -> bool>,
