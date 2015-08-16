@@ -1,4 +1,3 @@
-use libc::types::common::c95::FILE;
 use std::cell::UnsafeCell;
 
 pub type JSConstDoubleSpec = JSConstScalarSpec<f64>;

@@ -22,8 +22,12 @@ use jsapi::{JS_SetErrorReporter, Evaluate3, JSErrorReport};
 use jsapi::{JS_SetGCParameter, JSGCParamKey};
 use jsapi::{Heap, Cell, HeapCellPostBarrier, HeapCellRelocate, HeapValuePostBarrier, HeapValueRelocate};
 use jsapi::{ThingRootKind, ContextFriendFields};
-use jsapi::{Rooted, RootedValue, Handle, MutableHandle};
-use jsapi::{MutableHandleValue, HandleValue, HandleObject};
+use jsapi::{Rooted, RootedValue};
+use jsapi::Handle as RawHandle;
+use jsapi::MutableHandle as RawMutableHandle;
+use jsapi::HandleValue as RawHandleValue;
+use jsapi::HandleObject as RawHandleObject;
+use jsapi::MutableHandleValue as RawMutableHandleValue;
 use jsapi::AutoObjectVector;
 use jsapi::{ToBooleanSlow, ToNumberSlow, ToStringSlow};
 use jsapi::{ToInt32Slow, ToUint32Slow, ToUint16Slow, ToInt64Slow, ToUint64Slow};
@@ -121,7 +125,7 @@ impl Runtime {
         unsafe {
             if 0 == Evaluate3(self.cx(), scopechain.ptr, options.ptr,
                               ptr as *const i16, len as size_t,
-                              rval.handle_mut()) {
+                              rval.handle_mut().to_jsapi()) {
                 debug!("...err!");
                 Err(())
             } else {
@@ -216,43 +220,61 @@ impl<T: RootKind> Rooted<T> {
     }
 }
 
-impl<T: Copy> Handle<T> {
+pub struct Handle<'a, T: 'a> {
+    ptr: &'a T,
+}
+
+pub struct MutableHandle<'a, T: 'a> {
+    ptr: &'a mut T,
+}
+
+impl<'a, T: Copy> Handle<'a, T> {
     pub fn get(&self) -> T {
-        unsafe { *self.ptr }
+        *self.ptr
+    }
+
+    pub fn to_jsapi(&self) -> RawHandle<T> {
+        RawHandle { ptr: self.ptr }
     }
 }
 
-impl<T: Copy> Deref for Handle<T> {
+impl<'a, T: Copy> Deref for Handle<'a, T> {
     type Target = T;
 
-    fn deref<'a>(&'a self) -> &'a T {
-        unsafe { &*self.ptr }
+    fn deref<'b>(&'b self) -> &'b T {
+        self.ptr
     }
 }
 
-impl<T: Copy> Deref for MutableHandle<T> {
+impl<'a, T: Copy> Deref for MutableHandle<'a, T> {
     type Target = T;
 
-    fn deref<'a>(&'a self) -> &'a T {
-        unsafe { &*self.ptr }
+    fn deref<'b>(&'b self) -> &'b T {
+        self.ptr
     }
 }
 
-impl<T: Copy> DerefMut for MutableHandle<T> {
-    fn deref_mut<'a>(&'a mut self) -> &'a mut T {
-        unsafe { &mut *self.ptr }
+impl<'a, T: Copy> DerefMut for MutableHandle<'a, T> {
+    fn deref_mut<'b>(&'b mut self) -> &'b mut T {
+        self.ptr
     }
 }
 
-impl HandleValue {
-    pub fn null() -> HandleValue {
-        HandleValue {
+pub type HandleValue<'a> = Handle<'a, Value>;
+pub type HandleObject<'a> = Handle<'a, *mut JSObject>;
+pub type HandleId<'a> = Handle<'a, jsid>;
+pub type MutableHandleValue<'a> = MutableHandle<'a, Value>;
+pub type MutableHandleObject<'a> = MutableHandle<'a, *mut JSObject>;
+
+impl RawHandleValue {
+    pub fn null() -> RawHandleValue {
+        RawHandleValue {
             ptr: &JSVAL_NULL
         }
     }
 
-    pub fn undefined() -> HandleValue {
-        HandleValue {
+    pub fn undefined() -> RawHandleValue {
+        RawHandleValue {
             ptr: &JSVAL_VOID
         }
     }
@@ -260,23 +282,27 @@ impl HandleValue {
 
 const ConstNullValue: *mut JSObject = 0 as *mut JSObject;
 
-impl HandleObject {
-    pub fn null() -> HandleObject {
-        HandleObject { ptr: &ConstNullValue }
+impl RawHandleObject {
+    pub fn null() -> RawHandleObject {
+        RawHandleObject { ptr: &ConstNullValue }
     }
 }
 
-impl<T: Copy> MutableHandle<T> {
+impl<'a, T: Copy> MutableHandle<'a, T> {
     pub fn get(&self) -> T {
-        unsafe { *self.ptr }
+        *self.ptr
     }
 
-    pub fn set(&self, v: T) {
-        unsafe { *self.ptr = v }
+    pub fn set(&mut self, v: T) {
+        *self.ptr = v
     }
 
-    pub fn handle(&self) -> Handle<T> {
-        Handle { ptr: unsafe { &*self.ptr } }
+    pub fn handle(&'a self) -> Handle<'a, T> {
+        Handle { ptr: self.ptr }
+    }
+
+    pub fn to_jsapi(&mut self) -> RawMutableHandle<T> {
+        RawMutableHandle { ptr: self.ptr }
     }
 }
 
@@ -419,8 +445,8 @@ impl<T: GCMethods<T> + Copy> Heap<T> {
         self.ptr.get()
     }
 
-    pub fn handle(&self) -> Handle<T> {
-        Handle { ptr: self.ptr.get() as *const _ }
+    pub fn handle<'a>(&'a self) -> Handle<'a, T> {
+        Handle { ptr: unsafe { &*self.ptr.get() } }
     }
 }
 
@@ -483,23 +509,23 @@ impl Drop for JSAutoCompartment {
 }
 
 impl JSJitMethodCallArgs {
-    pub fn get(&self, i: u32) -> HandleValue {
+    pub fn get<'a>(&'a self, i: u32) -> HandleValue<'a> {
         assert!(i < self.argc_);
         HandleValue {
-            ptr: unsafe { self.argv_.offset(i as isize) }
+            ptr: unsafe { &*self.argv_.offset(i as isize) }
         }
     }
 
-    pub fn get_mut(&self, i: u32) -> MutableHandleValue {
+    pub fn get_mut<'a>(&'a self, i: u32) -> MutableHandleValue<'a> {
         assert!(i < self.argc_);
         MutableHandleValue {
-            ptr: unsafe { self.argv_.offset(i as isize) }
+            ptr: unsafe { &mut *self.argv_.offset(i as isize) }
         }
     }
 
-    pub fn rval(&self) -> MutableHandleValue {
+    pub fn rval<'a>(&'a self) -> MutableHandleValue<'a> {
         MutableHandleValue {
-            ptr: unsafe { self.argv_.offset(-2) }
+            ptr: unsafe { &mut *self.argv_.offset(-2) }
         }
     }
 }
@@ -514,41 +540,41 @@ impl CallArgs {
         }
     }
 
-    pub fn get(&self, i: u32) -> HandleValue {
+    pub fn get<'a>(&'a self, i: u32) -> HandleValue<'a> {
         assert!(i < self.argc_);
         HandleValue {
-            ptr: unsafe { self.argv_.offset(i as isize) }
+            ptr: unsafe { &*self.argv_.offset(i as isize) }
         }
     }
 
-    pub fn get_mut(&self, i: u32) -> MutableHandleValue {
+    pub fn get_mut<'a>(&'a self, i: u32) -> MutableHandleValue<'a> {
         assert!(i < self.argc_);
         MutableHandleValue {
-            ptr: unsafe { self.argv_.offset(i as isize) }
+            ptr: unsafe { &mut *self.argv_.offset(i as isize) }
         }
     }
 
-    pub fn rval(&self) -> MutableHandleValue {
+    pub fn rval<'a>(&'a self) -> MutableHandleValue<'a> {
         MutableHandleValue {
-            ptr: unsafe { self.argv_.offset(-2) }
+            ptr: unsafe { &mut *self.argv_.offset(-2) }
         }
     }
 
-    pub fn thisv(&self) -> HandleValue {
+    pub fn thisv<'a>(&'a self) -> HandleValue<'a> {
         HandleValue {
-            ptr: unsafe { self.argv_.offset(-1) }
+            ptr: unsafe { &*self.argv_.offset(-1) }
         }
     }
 }
 
 impl JSJitGetterCallArgs {
-    pub fn rval(&self) -> MutableHandleValue {
+    pub fn rval(&self) -> RawMutableHandleValue {
         self._base
     }
 }
 
 impl JSJitSetterCallArgs {
-    pub fn get(&self, i: u32) -> HandleValue {
+    pub fn get(&self, i: u32) -> RawHandleValue {
         assert!(i == 0);
         self._base
     }
@@ -606,7 +632,7 @@ impl Drop for CompileOptionsWrapper {
 
 #[inline]
 pub fn ToBoolean(v: HandleValue) -> bool {
-    let val = unsafe { *v.ptr };
+    let val = *v.ptr;
 
     if val.is_boolean() {
         return val.to_boolean();
@@ -629,12 +655,12 @@ pub fn ToBoolean(v: HandleValue) -> bool {
         return true;
     }
 
-    unsafe { ToBooleanSlow(v) != 0 }
+    unsafe { ToBooleanSlow(v.to_jsapi()) != 0 }
 }
 
 #[inline]
 pub fn ToNumber(cx: *mut JSContext, v: HandleValue) -> Result<f64, ()> {
-    let val = unsafe { *v.ptr };
+    let val = *v.ptr;
     if val.is_number() {
         return Ok(val.to_number());
     }
@@ -653,10 +679,10 @@ pub fn ToNumber(cx: *mut JSContext, v: HandleValue) -> Result<f64, ()> {
 fn convert_from_int32<T: Default + Copy>(
     cx: *mut JSContext,
     v: HandleValue,
-    conv_fn: unsafe extern "C" fn(*mut JSContext, HandleValue, *mut T) -> u8)
+    conv_fn: unsafe extern "C" fn(*mut JSContext, RawHandleValue, *mut T) -> u8)
         -> Result<T, ()> {
 
-    let val = unsafe { *v.ptr };
+    let val = *v.ptr;
     if val.is_int32() {
         let intval: i64 = val.to_int32() as i64;
         // TODO: do something better here that works on big endian
@@ -666,7 +692,7 @@ fn convert_from_int32<T: Default + Copy>(
 
     let mut out = Default::default();
     unsafe {
-        if conv_fn(cx, v, &mut out) == 0 {
+        if conv_fn(cx, v.to_jsapi(), &mut out) == 0 {
             Err(())
         } else {
             Ok(out)
@@ -701,13 +727,13 @@ pub fn ToUint64(cx: *mut JSContext, v: HandleValue) -> Result<u64, ()> {
 
 #[inline]
 pub fn ToString(cx: *mut JSContext, v: HandleValue) -> *mut JSString {
-    let val = unsafe { *v.ptr };
+    let val = *v.ptr;
     if val.is_string() {
         return val.to_string();
     }
 
     unsafe {
-        ToStringSlow(cx, v)
+        ToStringSlow(cx, v.to_jsapi())
     }
 }
 
