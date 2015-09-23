@@ -17,6 +17,7 @@ extern crate libc;
 extern crate log;
 extern crate rustc_serialize as serialize;
 
+pub mod custom_auto_rooter;
 pub mod jsapi;
 pub mod linkhack;
 pub mod rust;

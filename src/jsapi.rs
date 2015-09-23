@@ -249,6 +249,29 @@ pub struct Runtime {
 impl ::std::default::Default for Runtime {
     fn default() -> Runtime { unsafe { ::std::mem::zeroed() } }
 }
+#[repr(i32)]
+#[derive(Clone, Copy)]
+pub enum AutoGCRooter_ {
+    VALARRAY = -2,
+    PARSER = -3,
+    SHAPEVECTOR = -4,
+    IDARRAY = -6,
+    DESCVECTOR = -7,
+    VALVECTOR = -10,
+    IDVECTOR = -11,
+    IDVALVECTOR = -12,
+    OBJVECTOR = -14,
+    STRINGVECTOR = -15,
+    SCRIPTVECTOR = -16,
+    NAMEVECTOR = -17,
+    HASHABLEVALUE = -18,
+    IONMASM = -19,
+    WRAPVECTOR = -20,
+    WRAPPER = -21,
+    OBJU32HASHMAP = -23,
+    JSONPARSER = -25,
+    CUSTOM = -26,
+}
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct AutoGCRooter {
@@ -1135,13 +1158,21 @@ impl ::std::default::Default for AutoScriptVector {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct CustomAutoRooter;
+pub struct CustomAutoRooter {
+    pub _vftable: *const _vftable_CustomAutoRooter,
+    pub _base: AutoGCRooter,
+}
 impl ::std::default::Default for CustomAutoRooter {
     fn default() -> CustomAutoRooter { unsafe { ::std::mem::zeroed() } }
 }
 #[repr(C)]
+pub struct _vftable_CustomAutoRooter {
+    pub trace: extern "C" fn(this: *mut ::libc::c_void, trc: *mut JSTracer),
+}
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RootedGeneric<T> {
+    pub _base: CustomAutoRooter,
     pub value: T,
 }
 #[repr(C)]
