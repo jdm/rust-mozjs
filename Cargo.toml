@@ -52,6 +52,7 @@ debugmozjs = ['mozjs_sys/debugmozjs']
 profilemozjs = ['mozjs_sys/profilemozjs']
 uwp = ['mozjs_sys/uwp']
 vslatestinstalled = ['mozjs_sys/vslatestinstalled']
+jitspew = ['mozjs_sys/jitspew']
 
 [dependencies]
 lazy_static = "1"
